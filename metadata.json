@@ -1,0 +1,6 @@
+{
+  "name": "스마트 피아노",
+  "description": "A high-fidelity 1080x1920 fixed portrait signage layout interactive piano game. Play along with classic practice scores like Twinkle Twinkle Little Star with actual physical keys synthesizer feedback.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
