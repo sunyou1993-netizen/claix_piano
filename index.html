@@ -16,10 +16,6 @@
         <!-- Header: Height 120px -->
         <header id="app-header">
           <div class="header-left">
-            <button class="back-btn" id="header-back-btn" title="뒤로가기">
-              <!-- Back icon 52px (loaded beautifully via Lucide inline) -->
-              <i data-lucide="chevron-left"></i>
-            </button>
             <span class="header-title">피아노 연주</span>
           </div>
           <div class="header-right">
@@ -37,7 +33,6 @@
           <div class="mascot-left-pane">
             <div class="mascot-meta-row">
               <h1 class="song-title">작은 별</h1>
-              <span class="staff-page-indicator" id="staff-page-indicator">1 / 1 단</span>
             </div>
             
             <div class="mascot-status-row">
@@ -188,6 +183,21 @@
             </div>
             <div class="progress-track">
               <div class="progress-fill" id="measure-fill-bar" style="width: 66%;"></div>
+            </div>
+          </div>
+
+          <div class="stat-vertical-divider"></div>
+
+          <!-- Accompaniment Volume Controls -->
+          <div class="backing-volume-wrapper">
+            <div class="backing-volume-header">
+              <span class="backing-volume-label">반주 소리</span>
+              <span class="backing-volume-text" id="backing-volume-percent">80%</span>
+            </div>
+            <div class="backing-volume-slider-box">
+              <i data-lucide="volume-1" style="color: #8c9cb6; width: 18px; height: 18px;"></i>
+              <input type="range" id="backing-volume-range" class="volume-slider" min="0" max="100" value="80">
+              <i data-lucide="volume-2" style="color: #006CFF; width: 18px; height: 18px;"></i>
             </div>
           </div>
         </section>

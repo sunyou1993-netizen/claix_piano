@@ -440,13 +440,14 @@ div#signage-outer:nth-of-type(1) > main#signage-app:nth-of-type(1) > header#app-
   height: 160px;
   flex-shrink: 0;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
 }
 
 .stat-group {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
+  flex: 0 0 230px;
 }
 
 .stat-label-box {
@@ -487,8 +488,93 @@ div#signage-outer:nth-of-type(1) > main#signage-app:nth-of-type(1) > header#app-
   width: 2px;
   height: 80px;
   background: #E2E8F0;
-  margin: 0 48px;
+  margin: 0 24px;
   flex-shrink: 0;
+}
+
+.backing-volume-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 260px;
+  flex-shrink: 0;
+}
+
+.backing-volume-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.backing-volume-label {
+  font-size: 24px;
+  color: #8c9cb6;
+  font-weight: 600;
+}
+
+.backing-volume-text {
+  font-size: 32px;
+  font-weight: 700;
+  color: #006CFF;
+}
+
+.backing-volume-slider-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Custom styled modern range input */
+.volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: #e2e8f0;
+  outline: none;
+  cursor: pointer;
+}
+
+.volume-slider::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 8px;
+  cursor: pointer;
+  background: #e2e8f0;
+  border-radius: 4px;
+}
+
+.volume-slider::-webkit-slider-thumb {
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  background: #006CFF;
+  cursor: pointer;
+  -webkit-appearance: none;
+  margin-top: -6px;
+  box-shadow: 0 4px 6px -1px rgba(0, 108, 255, 0.4);
+  transition: transform 0.1s ease, background-color 0.1s ease;
+}
+
+.volume-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  background: #0056cb;
+}
+
+.volume-slider::-moz-range-thumb {
+  height: 20px;
+  width: 20px;
+  border: none;
+  border-radius: 50%;
+  background: #006CFF;
+  cursor: pointer;
+  box-shadow: 0 4px 6px -1px rgba(0, 108, 255, 0.4);
+  transition: transform 0.1s ease, background-color 0.1s ease;
+}
+
+.volume-slider::-moz-range-thumb:hover {
+  transform: scale(1.1);
+  background: #0056cb;
 }
 
 .bar-progress-wrapper {

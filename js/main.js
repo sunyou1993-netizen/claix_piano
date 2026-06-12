@@ -18,6 +18,7 @@ const state = {
   activeKeys: new Set(),
   settings: {
     audioVolume: 0.8,
+    backingVolume: 0.8,
     soundOn: true,
     midiAssist: false,
     particlesOn: true,
@@ -1558,7 +1559,7 @@ function initializeFullSongsDatabase() {
   
   ADDITIONAL_SONGS_META.forEach((meta) => {
     const notes = [];
-    let pitches = [];
+    let basePitches = [];
     
     const scaleMap = {
       'scale-easy': [0, 1, 2, 3, 4, 3, 2, 1, 0, 1, 2, 3, 4],
@@ -1578,24 +1579,69 @@ function initializeFullSongsDatabase() {
     };
     
     if (scaleMap[meta.melodyType]) {
-      pitches = scaleMap[meta.melodyType];
+      basePitches = scaleMap[meta.melodyType];
     } else if (meta.melodyType.startsWith('classical')) {
       const offset = meta.difficultyRaw;
-      pitches = [2, 4, 7, 6, 5, 4, 2, 1, 0, 2, 4, 7, 6, 5, 4, 2, 0].map(v => Math.min(9, Math.max(0, v + (offset % 3) - 1)));
+      basePitches = [2, 4, 7, 6, 5, 4, 2, 1, 0, 2, 4, 7, 6, 5, 4, 2, 0].map(v => Math.min(9, Math.max(0, v + (offset % 3) - 1)));
     } else if (meta.melodyType.startsWith('rhyme')) {
       const seed = meta.title.length;
-      pitches = [4, 2, 2, 3, 1, 1, 0, 2, 4, 4, 2, 2, 0].map(v => Math.min(9, Math.max(0, v + (seed % 3) - 1)));
+      basePitches = [4, 2, 2, 3, 1, 1, 0, 2, 4, 4, 2, 2, 0].map(v => Math.min(9, Math.max(0, v + (seed % 3) - 1)));
     } else if (meta.melodyType.startsWith('folk')) {
       const seed = meta.title.length;
-      pitches = [0, 2, 3, 4, 6, 5, 4, 2, 0, 2, 4, 2, 0].map(v => Math.min(9, Math.max(0, v + (seed % 2))));
+      basePitches = [0, 2, 3, 4, 6, 5, 4, 2, 0, 2, 4, 2, 0].map(v => Math.min(9, Math.max(0, v + (seed % 2))));
     } else {
-      pitches = [0, 2, 4, 5, 7, 6, 5, 4, 3, 2, 1, 0];
+      basePitches = [0, 2, 4, 5, 7, 6, 5, 4, 3, 2, 1, 0];
+    }
+    
+    // 1. Expand the motif to a full-length 4-section song of ~50-65 notes
+    const fullPitches = [];
+    
+    // Verse A
+    fullPitches.push(...basePitches);
+    
+    // Verse B (slightly varied at the ending)
+    const verse2 = basePitches.map((p, idx) => {
+      if (idx >= basePitches.length - 4) {
+        return Math.min(9, Math.max(0, p + 1));
+      }
+      return p;
+    });
+    fullPitches.push(...verse2);
+    
+    // Chorus (beautiful register transpose soaring high)
+    const chorus = basePitches.map((p) => {
+      return Math.min(9, Math.max(0, p + 2));
+    });
+    fullPitches.push(...chorus);
+    
+    // Outro (resolves gracefully on root '도' / key index 0)
+    const outro = basePitches.map((p, idx) => {
+      if (idx === basePitches.length - 1) return 0; // tonic resolution!
+      if (idx === basePitches.length - 2) return 1; // leading note
+      return p;
+    });
+    fullPitches.push(...outro);
+    
+    // 2. Assign precise speed and tempo (ms per note step) matching human speed
+    let stepDuration = 800; // default moderate speed
+    
+    const fastTitles = ["헝가리 무곡", "카르멘", "라데츠키", "하농", "체르니", "트릴", "아기 상어", "올챙이", "꼬마 눈사람", "도깨비", "뚱보", "우산", "산토끼", "머리 어깨"];
+    const slowTitles = ["아베 마리아", "녹턴", "반달", "오빠 생각", "월광", "로렐라이", "메기", "고향", "보리밭"];
+    
+    if (fastTitles.some(t => meta.title.includes(t))) {
+      stepDuration = 520; // Fast Bouncing tempo (~115 BPM)
+    } else if (slowTitles.some(t => meta.title.includes(t))) {
+      stepDuration = 1250; // Slow classical tempo (~48 BPM)
+    } else if (meta.badge === '연습곡') {
+      stepDuration = 620; // Practice drills are agile
+    } else if (meta.difficultyRaw >= 4) {
+      stepDuration = 580; // Harder pieces are brisker
     }
     
     let currTime = 1000;
-    pitches.forEach((p) => {
+    fullPitches.forEach((p) => {
       notes.push({ keyIdx: p, onset: currTime, hit: false });
-      currTime += 1000;
+      currTime += stepDuration;
     });
     
     const sheetMusic = notes.map((note, sIdx) => {
@@ -1613,10 +1659,108 @@ function initializeFullSongsDatabase() {
       sheetMusic: sheetMusic
     });
   });
+  
+  // 3. Make hardcoded songs also have energetic, authentic tempos
+  // '작은 별' (index 0): 750ms step (around 80 BPM piano flow)
+  if (SONGS[0] && SONGS[0].notes) {
+    SONGS[0].notes.forEach(note => {
+      note.onset = note.onset * 0.75;
+    });
+  }
+  // '나비야 나비야' (index 1): 700ms step (around 85 BPM children tempo)
+  if (SONGS[1] && SONGS[1].notes) {
+    SONGS[1].notes.forEach(note => {
+      note.onset = note.onset * 0.7;
+    });
+  }
+}
+
+// Automatically expand every single song in the SONGS database to a magnificent full length 4-part arrangement
+function extendAllSongsToFullLength() {
+  const labelsMap = ['도', '레', '미', '파', '솔', '라', '시', '도', '레', '미'];
+  
+  SONGS.forEach(song => {
+    // We want to make sure EVERY single song is a full-length composition rather than a short snippet
+    if (song.notes && song.notes.length > 0 && song.notes.length < 100) {
+      const originalNotes = JSON.parse(JSON.stringify(song.notes));
+      const originalSheet = JSON.parse(JSON.stringify(song.sheetMusic || []));
+      const count = originalNotes.length;
+      
+      // Calculate average note offset step duration / stride
+      let stepGap = 1000;
+      if (count > 1) {
+        let sum = 0;
+        for (let i = 1; i < count; i++) {
+          sum += (originalNotes[i].onset - originalNotes[i - 1].onset);
+        }
+        stepGap = sum / (count - 1);
+        if (stepGap <= 0) stepGap = 800;
+      }
+      
+      // Duration of a single copy repetition pattern
+      const cycleTime = originalNotes[count - 1].onset + stepGap;
+      
+      const finalNotes = [...originalNotes];
+      const finalSheet = [...originalSheet];
+      
+      // Create detailed structural movements (Verse A - Verse B [Varied] - Chorus [Transposed] - Outro [Cadence resolution])
+      
+      // Part 2: Verse B (subtle ending adjustments)
+      for (let i = 0; i < count; i++) {
+        const item = originalNotes[i];
+        let kIdx = item.keyIdx;
+        
+        // Vary the last ending notes of Verse B
+        if (i === count - 1) kIdx = Math.min(9, Math.max(0, kIdx + (kIdx % 2 === 0 ? 1 : -1)));
+        if (i === count - 2) kIdx = Math.min(9, Math.max(0, kIdx + (kIdx % 2 === 0 ? -1 : 1)));
+        
+        const newOnset = item.onset + cycleTime;
+        finalNotes.push({ keyIdx: kIdx, onset: newOnset, hit: false });
+        
+        const label = labelsMap[kIdx % labelsMap.length] || '도';
+        finalSheet.push({ label: label, activeIdx: [finalNotes.length - 1] });
+      }
+      
+      // Part 3: Chorus (melodic registers transposed higher +2 for emotional climax)
+      for (let i = 0; i < count; i++) {
+        const item = originalNotes[i];
+        const kIdx = Math.min(9, Math.max(0, item.keyIdx + 2));
+        const newOnset = item.onset + cycleTime * 2;
+        finalNotes.push({ keyIdx: kIdx, onset: newOnset, hit: false });
+        
+        const label = labelsMap[kIdx % labelsMap.length] || '도';
+        finalSheet.push({ label: label, activeIdx: [finalNotes.length - 1] });
+      }
+      
+      // Part 4: Outro (gracefully resolving melody to the root tonic C / '도' / key index 0)
+      for (let i = 0; i < count; i++) {
+        const item = originalNotes[i];
+        let kIdx = item.keyIdx;
+        
+        // Graceful authentic tonic resolution
+        if (i === count - 1) {
+          kIdx = 0; // tonic
+        } else if (i === count - 2) {
+          kIdx = 1; // leading note
+        }
+        
+        const newOnset = item.onset + cycleTime * 3;
+        finalNotes.push({ keyIdx: kIdx, onset: newOnset, hit: false });
+        
+        const label = labelsMap[kIdx % labelsMap.length] || '도';
+        finalSheet.push({ label: label, activeIdx: [finalNotes.length - 1] });
+      }
+      
+      song.notes = finalNotes;
+      song.sheetMusic = finalSheet;
+      song.totalMeasures = Math.ceil(finalNotes.length / 4) + 1;
+    }
+  });
 }
 
 // Expand database on script evaluation
 initializeFullSongsDatabase();
+extendAllSongsToFullLength();
 
 // Map any song custom badge to primary filter categories
 function getPrimaryCategory(song) {
@@ -1705,8 +1849,8 @@ function playSyntheticPianoNote(frequency) {
   }
 }
 
-// Custom soft-chining ambient melody / music box synthesizer for song backings
-function playSyntheticAccompanimentNote(frequency) {
+// Custom high-fidelity physical acoustic piano synthesizer for elegant piano backing tracks
+function playSyntheticAccompanimentNote(frequency, keyIdx = 0) {
   if (!state.settings.soundOn) return;
   
   try {
@@ -1718,46 +1862,81 @@ function playSyntheticAccompanimentNote(frequency) {
     }
     
     const now = audioCtx.currentTime;
+    // Set a very rich and amplified base volume to accommodate the user's feedback
+    const baseVolume = (state.settings.backingVolume !== undefined ? state.settings.backingVolume : 0.8) * 1.8;
     
-    // Rich backing sound: Fundamental Melody + Warm Sub-Octave Bass (0.5x) + Harmonizing Perfect Fifth (0.75x)
-    const frequencies = [
-      frequency,         // Melody voice
-      frequency * 0.5,   // Warm Bass voice
-      frequency * 0.75   // Consonant perfect fifth harmony
-    ];
-    
-    frequencies.forEach((f, idx) => {
+    // Exact pure, bell-like piano note formula modeled from interactive keyboard keys
+    const playClearPianoPureTone = (freq, vol, decayTime) => {
       const osc1 = audioCtx.createOscillator();
       const osc2 = audioCtx.createOscillator();
-      const voiceGain = audioCtx.createGain();
+      const fundamentalGain = audioCtx.createGain();
       
-      osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(f, now);
+      osc1.type = 'triangle';
+      osc1.frequency.setValueAtTime(freq, now);
       
-      osc2.type = 'triangle';
-      osc2.frequency.setValueAtTime(f * 2, now); // Sweet octave overtone
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(freq * 2, now); // Second harmonic adds bright metallic shine
       
-      // Control comparative volumes for a balanced, cinematic mix
-      let blendFactor = 1.0;
-      if (idx === 1) blendFactor = 0.75; // Heavy warm bass
-      if (idx === 2) blendFactor = 0.65; // Soft harmonious fifth
+      fundamentalGain.gain.setValueAtTime(0, now);
+      fundamentalGain.gain.linearRampToValueAtTime(vol * 0.75, now + 0.012); 
+      fundamentalGain.gain.exponentialRampToValueAtTime(0.001, now + decayTime);
       
-      voiceGain.gain.setValueAtTime(0, now);
-      voiceGain.gain.linearRampToValueAtTime(state.settings.audioVolume * 0.22 * blendFactor, now + 0.08); 
-      voiceGain.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
+      // Crisp mechanical high-frequency transient hammer strike highpass click
+      const attackStrikeOsc = audioCtx.createOscillator();
+      const strikeGain = audioCtx.createGain();
+      attackStrikeOsc.type = 'triangle';
+      attackStrikeOsc.frequency.setValueAtTime(freq * 5, now);
+      strikeGain.gain.setValueAtTime(vol * 0.45, now);
+      strikeGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
       
-      osc1.connect(voiceGain);
-      osc2.connect(voiceGain);
-      voiceGain.connect(audioCtx.destination);
+      const strokeFilter = audioCtx.createBiquadFilter();
+      strokeFilter.type = 'highpass';
+      strokeFilter.frequency.setValueAtTime(600, now);
+      
+      attackStrikeOsc.connect(strokeFilter);
+      strokeFilter.connect(strikeGain);
+      strikeGain.connect(audioCtx.destination);
+      
+      osc1.connect(fundamentalGain);
+      osc2.connect(fundamentalGain);
+      fundamentalGain.connect(audioCtx.destination);
       
       osc1.start(now);
       osc2.start(now);
+      attackStrikeOsc.start(now);
       
-      osc1.stop(now + 2.0);
-      osc2.stop(now + 2.0);
+      osc1.stop(now + decayTime + 0.1);
+      osc2.stop(now + decayTime + 0.1);
+      attackStrikeOsc.stop(now + 0.1);
+    };
+
+    // 1. Right-Hand melodic guide piano voice - Identical to standard keys, highly clear & bright!
+    playClearPianoPureTone(frequency, baseVolume * 1.6, 1.4);
+    
+    // 2. Play beautiful shimmering accompaniment dyad in middle-high register (pure, no low organ mud)
+    const baseStep = keyIdx % 10;
+    let chordSteps = [0, 2]; // Sweet diatonic third interval
+    if (baseStep === 1) chordSteps = [1, 3];
+    if (baseStep === 2) chordSteps = [2, 4];
+    if (baseStep === 3) chordSteps = [3, 5];
+    if (baseStep === 4) chordSteps = [4, 6];
+    if (baseStep === 5) chordSteps = [5, 7];
+    if (baseStep === 6) chordSteps = [4, 7];
+    if (baseStep === 7) chordSteps = [0, 3];
+    if (baseStep === 8) chordSteps = [1, 4];
+    if (baseStep === 9) chordSteps = [2, 5];
+    
+    chordSteps.forEach((step) => {
+      const chordFreq = WHITE_KEYS[step % WHITE_KEYS.length].freq;
+      // Play middle-high register keys for sparkling clean background resonance
+      playClearPianoPureTone(chordFreq, baseVolume * 0.45, 1.2);
     });
+    
+    // 3. Clean left-hand single bass trace (1 octave down, low volume to prevent rumbling)
+    playClearPianoPureTone(frequency * 0.5, baseVolume * 0.6, 1.6);
+    
   } catch (error) {
-    console.warn("Accompaniment synth playback failed:", error);
+    console.warn("Acoustic piano accompaniment playback failed:", error);
   }
 }
 
@@ -1989,7 +2168,7 @@ function renderSongSelector() {
     
     const meta = document.createElement('div');
     meta.className = 'song-selector-item-meta';
-    meta.innerHTML = `<span>${song.badge}</span> • <span>난이도 ${song.stars} (${durationStr})</span>`;
+    meta.innerHTML = `<span>난이도 ${song.stars} (${durationStr})</span>`;
     
     leftPart.appendChild(title);
     leftPart.appendChild(meta);
@@ -2205,7 +2384,7 @@ function gameTick(now) {
         bgNote.played = true;
         const keyIdx = bgNote.keyIdx % WHITE_KEYS.length;
         const freq = WHITE_KEYS[keyIdx].freq;
-        playSyntheticAccompanimentNote(freq);
+        playSyntheticAccompanimentNote(freq, keyIdx);
       }
     });
   }
@@ -2909,6 +3088,22 @@ function initApplication() {
     backingToggle.checked = state.settings.backingMelodyOn;
     backingToggle.addEventListener('change', (e) => {
       state.settings.backingMelodyOn = e.target.checked;
+    });
+  }
+
+  const backingVolumeRange = document.getElementById('backing-volume-range');
+  const backingVolumePercent = document.getElementById('backing-volume-percent');
+  if (backingVolumeRange) {
+    backingVolumeRange.value = Math.round(state.settings.backingVolume * 100);
+    if (backingVolumePercent) {
+      backingVolumePercent.innerText = `${backingVolumeRange.value}%`;
+    }
+    backingVolumeRange.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value);
+      state.settings.backingVolume = val / 100;
+      if (backingVolumePercent) {
+        backingVolumePercent.innerText = `${val}%`;
+      }
     });
   }
 
