@@ -3026,7 +3026,13 @@ function initApplication() {
   const optSettingsBtn = document.getElementById('header-btn-settings');
   if (optSettingsBtn) {
     optSettingsBtn.addEventListener('click', () => {
-      alert('피아노 연주 세션을 종료하고 메인 대기화면으로 돌아갑니다.');
+      try {
+        window.top.location.href = 'https://claix-toolkit-xzrp.vercel.app/';
+      } catch (e) {
+        window.location.href = 'https://claix-toolkit-xzrp.vercel.app/';
+      }
+      // Fallback in case redirection is delayed
+      window.location.href = 'https://claix-toolkit-xzrp.vercel.app/';
     });
   }
   
