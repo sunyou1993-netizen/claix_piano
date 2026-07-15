@@ -2129,6 +2129,13 @@ function showHitTextFeedback(laneIdx, text, type) {
   }, 650);
 }
 
+// Calculate song duration dynamically based on last note onset
+function getSongDuration(song) {
+  if (!song.notes || song.notes.length === 0) return 60;
+  const lastOnset = song.notes[song.notes.length - 1].onset;
+  return Math.ceil((lastOnset + 2500) / 1000); // add 2.5s cushion for fall and fade out
+}
+
 // Generate list of songs in overlay selector
 function renderSongSelector() {
   const songListDom = document.getElementById('song-selector-list');
@@ -2156,15 +2163,11 @@ function renderSongSelector() {
     title.className = 'song-selector-item-title';
     title.innerText = song.title;
     
-    // Calculate song duration dynamically based on last note onset
-    let durationStr = '0:00';
-    if (song.notes && song.notes.length > 0) {
-      const lastOnset = song.notes[song.notes.length - 1].onset;
-      const durationSeconds = Math.ceil((lastOnset + 2500) / 1000); // add 2.5s cushion for fall and fade out
-      const mins = Math.floor(durationSeconds / 60);
-      const secs = durationSeconds % 60;
-      durationStr = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-    }
+    // Calculate song duration dynamically based on last note onset helper
+    const durationSeconds = getSongDuration(song);
+    const mins = Math.floor(durationSeconds / 60);
+    const secs = durationSeconds % 60;
+    const durationStr = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
     
     const meta = document.createElement('div');
     meta.className = 'song-selector-item-meta';
@@ -2285,12 +2288,8 @@ function startGameEngine() {
     // Backing track notes queue for automatic playback
     state.backingQueue = activeSong.notes.map((note, index) => ({ ...note, played: false }));
     
-    // Ensure the play timer lasts long enough to play the entire song completely plus a buffer of 5 seconds
-    const maxOnsetMs = activeSong.notes.length > 0 
-      ? activeSong.notes.reduce((max, n) => Math.max(max, n.onset), 0)
-      : 0;
-    const durationSeconds = Math.ceil(maxOnsetMs / 1000) + 5;
-    const timerSeconds = Math.max(activeSong.notes.length * 2, durationSeconds, 15);
+    // Set the play timer to match the exact duration displayed in the song selector
+    const timerSeconds = getSongDuration(activeSong);
     resetTimer(timerSeconds);
   } else {
     // Standard resume flow: Keep fallingNotes intact and just resume the timer
@@ -2339,17 +2338,21 @@ function resetGameEngine() {
   state.combo = 0;
   state.hitNotes = 0;
   state.accuracy = 100;
-  state.currentTime = 85; 
-  state.fallingNotes = [];
   
-  state.currentSectionIdx = 0;
   const activeSong = SONGS[state.currentSongIdx];
   if (activeSong) {
+    state.currentTime = getSongDuration(activeSong);
     state.songNotesHistory = new Array(activeSong.notes.length).fill('pending');
     renderStaveSheet(activeSong, 0);
   } else {
+    state.currentTime = 60;
     state.songNotesHistory = [];
   }
+  updateTimerUI();
+  
+  state.fallingNotes = [];
+  
+  state.currentSectionIdx = 0;
   
   const lanesWrapper = document.getElementById('board-lanes');
   if (lanesWrapper) {
